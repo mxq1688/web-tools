@@ -1,0 +1,31 @@
+{
+  "title": "Web Tools",
+  "ble": {
+    "title": "Bluetooth Debug Tool",
+    "subtitle": "Bluetooth device management tool based on Web Bluetooth API",
+    "startScan": "Start Scan",
+    "stopScan": "Stop Scan",
+    "scanning": "Scanning devices...",
+    "foundDevices": "Found Devices",
+    "noDevices": "No devices found",
+    "clickToScan": "Click the button above to start scanning for Bluetooth devices",
+    "nearest": "Nearest",
+    "connect": "Connect",
+    "connected": "Connected",
+    "disconnect": "Disconnect",
+    "notSupported": "Your browser does not support Web Bluetooth API. Please use Chrome, Edge or Opera browser",
+    "startRecord": "Start Recording",
+    "stopRecord": "Stop Recording",
+    "pauseRecord": "Pause Recording",
+    "resumeRecord": "Resume Recording",
+    "recording": "Recording",
+    "paused": "Paused",
+    "devTips": {
+      "title": "Development Tips",
+      "tip1": "Web Bluetooth API requires HTTPS or localhost environment",
+      "tip2": "Device scanning requires user gesture (button click)",
+      "tip3": "Please ensure your device supports Bluetooth and it is enabled",
+      "tip4": "Some browsers may require enabling experimental features in settings"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "title": "Web 工具集",
+  "ble": {
+    "title": "蓝牙调试工具",
+    "subtitle": "基于 Web Bluetooth API 的蓝牙设备管理工具",
+    "startScan": "开始扫描",
+    "stopScan": "停止扫描",
+    "scanning": "正在扫描设备...",
+    "foundDevices": "已发现设备",
+    "noDevices": "未发现设备",
+    "clickToScan": "点击上方按钮开始扫描蓝牙设备",
+    "nearest": "最近",
+    "connect": "连接",
+    "connected": "已连接",
+    "disconnect": "断开连接",
+    "notSupported": "当前浏览器不支持 Web Bluetooth API，请使用 Chrome、Edge 或 Opera 浏览器",
+    "startRecord": "开始录音",
+    "stopRecord": "停止录音",
+    "pauseRecord": "暂停录音",
+    "resumeRecord": "继续录音",
+    "recording": "录音中",
+    "paused": "已暂停",
+    "devTips": {
+      "title": "开发提示",
+      "tip1": "Web Bluetooth API 需要在 HTTPS 环境或 localhost 下运行",
+      "tip2": "扫描设备需要用户手势触发（点击按钮）",
+      "tip3": "请确保您的设备支持蓝牙并已开启",
+      "tip4": "部分浏览器可能需要在设置中启用实验性功能"
+    }
+  }
+}

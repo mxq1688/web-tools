@@ -1,0 +1,11 @@
+/* Reset system css */
+
+blockquote,html,body,dd,dir,dl,fieldset,form,h1,h2,h3,h4,h5,h6,hr,input,menu,ol,p,pre,ul,xmp {margin:0;padding:0;}
+button,caption,dir,fieldset,input,legend,menu,ol,td,textarea,th,ul {padding:0}
+html{text-size-adjust:none}ul,li,ol,menu{list-style:none}img{border:none;}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}a{margin:0;padding:0;border:0;vertical-align:baseline;text-decoration:none;}ins{background-color:#ff9;color:#000;text-decoration:none}mark{background-color:#ff9;color:#000;font-style:italic;font-weight:700}del{text-decoration:line-through}sup,sub{line-height:0}abbr[title],dfn[title]{border-bottom:1px dotted #000;cursor:help}table{border-collapse:collapse;border-spacing:0}hr{display:block;height:1px;border:0;border-top:1px solid #ccc;margin:1em 0;padding:0}
+input,select,label,button{vertical-align:middle;border:none;background:none;}
+address,caption,cite,code,dfn,em,i,th,var{font-style:normal; font-weight:normal;}
+
+button{-webkit-appearance: none; outline: none;}
+
+/* Reset end */
