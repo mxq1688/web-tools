@@ -96,7 +96,21 @@
       >
         获取电池电量
       </el-button>
+      <el-button
+        type="primary"
+        size="default"
+        :icon="'View'"
+        @click="showAdvertisementInfo = !showAdvertisementInfo"
+      >
+        {{ showAdvertisementInfo ? '隐藏' : '查看' }} 广播信息
+      </el-button>
     </div>
+
+    <!-- 广播信息 -->
+    <AdvertisementInfo 
+      v-if="showAdvertisementInfo" 
+      :advertisement-data="advertisementData" 
+    />
 
     <!-- 录音状态 -->
     <div v-if="bleStore.audioStatus === 2 || bleStore.audioStatus === 3" class="record-status">
@@ -113,9 +127,25 @@
 <script setup lang="ts">
 import { VideoPlay, VideoPause, Close } from '@element-plus/icons-vue'
 import { useBleStore } from '@/stores/ble'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import AdvertisementInfo from './AdvertisementInfo.vue'
+import { AdvertisementParser } from '@/utils/ble/advertisementParser'
 
 const bleStore = useBleStore()
+const showAdvertisementInfo = ref(false)
+
+// 广播数据
+const advertisementData = computed(() => {
+  if (!bleStore.deviceDetail) return undefined
+  
+  // 模拟获取广播数据
+  const mockDevice = {
+    id: bleStore.deviceDetail.sn,
+    name: bleStore.deviceDetail.name,
+  } as BluetoothDevice
+  
+  return AdvertisementParser.parseAdvertisementData(mockDevice)
+})
 
 // 电池电量颜色
 const getBatteryColor = computed(() => {

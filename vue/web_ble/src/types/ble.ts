@@ -12,6 +12,40 @@ export interface BleDeviceInfo {
   lastSeen: number // 最后发现时间戳
   connected?: boolean // 是否已连接
   device?: BluetoothDevice // 原始设备对象
+  advertisementData?: BleAdvertisementData // 广播数据
+}
+
+// BLE 广播数据结构
+export interface BleAdvertisementData {
+  flags?: number // 广播标志
+  completeLocalName?: string // 完整设备名称
+  shortLocalName?: string // 短设备名称
+  txPowerLevel?: number // 传输功率
+  manufacturerData?: BleManufacturerData[] // 制造商数据
+  serviceUuids?: string[] // 服务UUID列表
+  serviceData?: BleServiceData[] // 服务数据
+  appearance?: number // 设备外观
+  customData?: BleCustomData[] // 自定义数据
+}
+
+// 制造商数据
+export interface BleManufacturerData {
+  companyId: number // 公司ID
+  data: Uint8Array // 数据
+  companyName?: string // 公司名称
+}
+
+// 服务数据
+export interface BleServiceData {
+  serviceUuid: string // 服务UUID
+  data: Uint8Array // 数据
+}
+
+// 自定义数据
+export interface BleCustomData {
+  type: number // 数据类型
+  data: Uint8Array // 数据
+  description?: string // 描述
 }
 
 // BLE 连接状态

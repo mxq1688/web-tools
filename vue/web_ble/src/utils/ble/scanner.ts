@@ -77,6 +77,7 @@ declare global {
   }
 }
 import { BLE_CONFIG, BLE_ERRORS, DEVICE_CLEANUP_INTERVAL, NEAREST_UPDATE_INTERVAL } from './config'
+import { AdvertisementParser } from './advertisementParser'
 
 export class BleScanner {
   private devices: Map<string, BleDeviceInfo> = new Map()
@@ -236,6 +237,9 @@ export class BleScanner {
     // 在实际使用中，需要通过连接后的其他方式获取
     const rssi = -60 // 默认值
 
+    // 解析广播数据
+    const advertisementData = AdvertisementParser.parseAdvertisementData(device)
+
     const deviceInfo: BleDeviceInfo = {
       id: deviceId,
       name: deviceName,
@@ -244,6 +248,7 @@ export class BleScanner {
       isNearest: false,
       device,
       connected: false,
+      advertisementData,
     }
 
     // 检查最小信号强度
