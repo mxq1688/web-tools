@@ -4,7 +4,7 @@
 
 import type { BleConfig } from '@/types/ble'
 
-// BLE UUID 配置（来自 blueKey.dart）
+// BLE UUID 配置（来自 blueKey.dart，Web Bluetooth API要求小写格式）
 export const BLE_CONFIG: BleConfig = {
   // 服务UUID（连接后使用，扫描时不作为过滤条件）
   serviceUUID: '00001910-0000-1000-8000-00805f9b34fb',

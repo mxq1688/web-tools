@@ -97,6 +97,22 @@
         获取电池电量
       </el-button>
       <el-button
+        type="success"
+        size="default"
+        :icon="'Refresh'"
+        @click="handleGetDeviceStatus"
+      >
+        获取设备状态
+      </el-button>
+      <el-button
+        type="warning"
+        size="default"
+        :icon="'Setting'"
+        @click="handleGetGeneralSetting"
+      >
+        获取通用设置
+      </el-button>
+      <el-button
         type="primary"
         size="default"
         :icon="'View'"
@@ -177,6 +193,14 @@ function handleStopRecord() {
 
 function handleGetBattery() {
   bleStore.getBatteryLevel()
+}
+
+function handleGetDeviceStatus() {
+  bleStore.getDeviceStatus()
+}
+
+function handleGetGeneralSetting() {
+  bleStore.getGeneralSetting()
 }
 </script>
 

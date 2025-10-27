@@ -134,14 +134,22 @@ export class BleScanner {
       
       // 请求设备（这会打开系统的蓝牙设备选择器）
       // 注意：optionalServices 必须包含，否则连接后无法访问这些服务
-      const device = await navigator.bluetooth.requestDevice({
-        filters,
+      const requestOptions: RequestDeviceOptions = {
         optionalServices: [
           BLE_CONFIG.serviceUUID,
           BLE_CONFIG.notifyUUID,
           BLE_CONFIG.writeUUID,
         ],
-      })
+      }
+      
+      // 如果有过滤器就使用过滤器，否则使用 acceptAllDevices
+      if (filters.length > 0) {
+        requestOptions.filters = filters
+      } else {
+        requestOptions.acceptAllDevices = true
+      }
+      
+      const device = await navigator.bluetooth.requestDevice(requestOptions)
 
       // Web Bluetooth API 只能选择单个设备，不支持批量扫描
       // 这是 Web API 的限制
@@ -186,33 +194,18 @@ export class BleScanner {
    * 注意：暂时不使用服务UUID过滤，只按设备名称过滤
    */
   private buildScanFilters(options?: BleScanOptions): BluetoothLEScanFilter[] {
-    // 支持的设备名称前缀（参考 Flutter processDeviceList）
-    const devicePrefixes = ['']
-    
     const filters: BluetoothLEScanFilter[] = []
 
-    // 为每个设备名称前缀创建过滤器（不使用服务UUID过滤）
-    if (options?.namePrefix) {
+    // 如果指定了设备名称前缀且不为空
+    if (options?.namePrefix && options.namePrefix.trim() !== '') {
       filters.push({
         namePrefix: options.namePrefix,
         // 不添加 services 字段，让扫描范围更广
       })
-    } else {
-      // 如果没有指定前缀，为所有支持的设备名称创建过滤器
-      devicePrefixes.forEach(prefix => {
-        filters.push({
-          namePrefix: prefix,
-          // 不添加 services 字段
-        })
-      })
     }
 
-    // 如果没有任何过滤器，使用 acceptAllDevices（不推荐，但可以看到所有设备）
-    if (filters.length === 0) {
-      // 返回空数组，让 requestDevice 使用 acceptAllDevices
-      return []
-    }
-
+    // 如果没有有效的过滤器，返回空数组让 requestDevice 使用 acceptAllDevices
+    // 这样可以扫描所有设备
     return filters
   }
 

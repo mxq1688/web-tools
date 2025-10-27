@@ -1,0 +1,14 @@
+# Dart BLE 目录
+demo/dartBle/
+
+# 其他常见的忽略文件
+.DS_Store
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

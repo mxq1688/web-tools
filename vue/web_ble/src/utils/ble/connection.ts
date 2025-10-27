@@ -66,41 +66,67 @@ export class BleConnection {
     }
 
     try {
-      console.log('🔗 连接设备:', deviceInfo.name)
+      console.log('🔗 开始连接设备:', deviceInfo.name)
+      console.log('🔍 设备信息:', {
+        id: deviceInfo.device.id,
+        name: deviceInfo.device.name,
+        gatt: deviceInfo.device.gatt
+      })
       
       // 连接 GATT 服务器
+      console.log('🔗 正在连接 GATT 服务器...')
       const server = await deviceInfo.device.gatt?.connect()
       if (!server) {
         throw new Error('无法连接到设备')
       }
       
+      console.log('✅ GATT 服务器连接成功')
       this.gattServer = server
       this.currentDevice = deviceInfo.device
       
       // 监听断开连接事件
       deviceInfo.device.addEventListener('gattserverdisconnected', this.handleDisconnected.bind(this))
+      console.log('✅ 已设置断开连接监听')
       
       // 获取服务
+      console.log('🔍 正在获取服务:', this.SERVICE_UUID)
       const service = await server.getPrimaryService(this.SERVICE_UUID)
-      console.log('✅ 已获取服务')
+      console.log('✅ 已获取服务:', service.uuid)
       
       // 获取通知特征
+      console.log('🔍 正在获取通知特征:', this.NOTIFY_UUID)
       const notifyChar = await service.getCharacteristic(this.NOTIFY_UUID)
       this.notifyCharacteristic = notifyChar
+      console.log('✅ 已获取通知特征:', notifyChar.uuid)
       
       // 启动通知
+      console.log('🔔 正在启动通知...')
       await notifyChar.startNotifications()
       notifyChar.addEventListener('characteristicvaluechanged', this.handleNotification.bind(this))
       console.log('✅ 已启动通知')
       
       // 获取写入特征
+      console.log('🔍 正在获取写入特征:', this.WRITE_UUID)
       const writeChar = await service.getCharacteristic(this.WRITE_UUID)
       this.writeCharacteristic = writeChar
-      console.log('✅ 已获取写入特征')
+      console.log('✅ 已获取写入特征:', writeChar.uuid)
+      
+      console.log('🎉 设备连接完全成功!')
+      console.log('📊 连接状态:', {
+        server: this.gattServer?.connected,
+        device: this.currentDevice?.name,
+        notifyChar: this.notifyCharacteristic?.uuid,
+        writeChar: this.writeCharacteristic?.uuid
+      })
       
       ElMessage.success(`已连接到 ${deviceInfo.name}`)
     } catch (error: any) {
-      console.error('连接失败:', error)
+      console.error('❌ 连接失败:', error)
+      console.error('❌ 错误详情:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      })
       this.cleanup()
       throw error
     }
@@ -168,6 +194,12 @@ export class BleConnection {
    */
   private handleDisconnected(): void {
     console.log('🔌 设备已断开连接')
+    console.log('🔍 断开原因分析:')
+    console.log('  - GATT服务器状态:', this.gattServer?.connected)
+    console.log('  - 当前设备:', this.currentDevice?.name)
+    console.log('  - 通知特征值:', this.notifyCharacteristic?.uuid)
+    console.log('  - 写入特征值:', this.writeCharacteristic?.uuid)
+    
     this.cleanup()
     this.onDisconnectedCallback?.()
     ElMessage.warning('设备已断开连接')
@@ -180,10 +212,15 @@ export class BleConnection {
     const target = event.target as unknown as BluetoothRemoteGATTCharacteristic
     const value = target.value
     
-    if (!value) return
+    if (!value) {
+      console.log('⚠️ 收到空数据')
+      return
+    }
     
     const bytes = new Uint8Array(value.buffer)
     console.log('📩 收到数据:', bytes)
+    console.log('📩 数据长度:', bytes.length)
+    console.log('📩 数据十六进制:', Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' '))
     
     this.onNotificationCallback?.(bytes)
   }

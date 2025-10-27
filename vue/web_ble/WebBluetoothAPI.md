@@ -8,6 +8,7 @@
 navigator.bluetooth.getAvailability()
 
 // 请求设备 (弹出系统设备选择器，用户选择后返回设备对象)
+// 扫描时只使用 filters，不使用服务UUID过滤
 navigator.bluetooth.requestDevice({
   filters: [{ namePrefix: '' }],  // 设备名称过滤
   optionalServices: ['0000180F-0000-1000-8000-00805F9B34FB']  // 可选服务

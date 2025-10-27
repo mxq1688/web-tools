@@ -138,6 +138,228 @@ export class BleDevice {
   }
 
   /**
+   * 设备握手绑定
+   * 参考 Flutter bindDevice 方法
+   */
+  async bindDevice(): Promise<void> {
+    if (!bleConnection.isConnected) {
+      console.log('⚠️ 设备未连接，跳过握手')
+      return
+    }
+    
+    try {
+      console.log('🤝 开始设备握手绑定...')
+      
+      // 第一步：发送初次握手命令 (firstHander)
+      // 参考 Flutter firstHander: [1, 1, 0, platformType, bleVersion, 0]
+      const firstHanderArr = new Uint8Array(6)
+      let offset = 0
+      
+      // 类型 (1 byte)
+      firstHanderArr[offset++] = 1
+      
+      // 命令 (2 bytes) - 1 = 0x01 (握手命令)
+      firstHanderArr[offset++] = 1 & 0xff
+      firstHanderArr[offset++] = (1 >>> 8) & 0xff
+      
+      // deviceType (1 byte) - Web平台类型
+      firstHanderArr[offset++] = 3  // Web平台
+      
+      // bleVersion (1 byte)
+      firstHanderArr[offset++] = 1
+      
+      // 初次握手标志 (1 byte)
+      firstHanderArr[offset++] = 0
+      
+      console.log('🤝 发送初次握手命令:', firstHanderArr)
+      await bleConnection.writeData(firstHanderArr)
+      console.log('✅ 初次握手命令发送成功')
+      
+      // 等待握手响应
+      console.log('⏳ 等待握手响应...')
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // 第二步：发送Token (sendToken)
+      // 参考 Flutter sendToken: [1, 1, 0, platformType, bleVersion, 1, token(16), 0, deviceToken(8), nameLength, name]
+      const token = "1234567890000000"
+      const deviceName = "Web BLE Debug Tool"
+      const nameBytes = new TextEncoder().encode(deviceName)
+      
+      const tokenArr = new Uint8Array(6 + 16 + 1 + 8 + 1 + nameBytes.length)
+      offset = 0
+      
+      // 类型 (1 byte)
+      tokenArr[offset++] = 1
+      
+      // 命令 (2 bytes) - 1 = 0x01 (握手命令)
+      tokenArr[offset++] = 1 & 0xff
+      tokenArr[offset++] = (1 >>> 8) & 0xff
+      
+      // deviceType (1 byte) - Web平台类型
+      tokenArr[offset++] = 3  // Web平台
+      
+      // bleVersion (1 byte)
+      tokenArr[offset++] = 1
+      
+      // 校验通过标志 (1 byte)
+      tokenArr[offset++] = 1
+      
+      // Token (16 bytes)
+      for (let i = 0; i < 16; i++) {
+        tokenArr[offset++] = token.charCodeAt(i)
+      }
+      
+      // Long_audio (1 byte)
+      tokenArr[offset++] = 0
+      
+      // Device_token (8 bytes) - 扫码绑定传过来的笔端token，非扫码绑定写8个0
+      for (let i = 0; i < 8; i++) {
+        tokenArr[offset++] = 0
+      }
+      
+      // 设备名称长度 (1 byte)
+      tokenArr[offset++] = nameBytes.length
+      
+      // 设备名称
+      for (let i = 0; i < nameBytes.length; i++) {
+        tokenArr[offset++] = nameBytes[i]
+      }
+      
+      console.log('🔑 发送Token命令:', tokenArr)
+      await bleConnection.writeData(tokenArr)
+      console.log('✅ Token命令发送成功')
+      
+      console.log('✅ 设备握手绑定完成')
+    } catch (error: any) {
+      console.log('⚠️ 设备握手绑定失败，但不影响连接:', error)
+      // 不抛出错误，避免影响连接状态
+    }
+  }
+
+  /**
+   * 同步时间
+   * 参考 Flutter syncTime 方法
+   */
+  async syncTime(): Promise<void> {
+    if (!bleConnection.isConnected) {
+      console.log('⚠️ 设备未连接，跳过时间同步')
+      return
+    }
+    
+    try {
+      console.log('⏰ 开始时间同步...')
+      
+      // 获取当前时间和时区信息
+      const now = new Date()
+      const gmtTimestamp = Math.floor(now.getTime() / 1000) // 秒级时间戳
+      const timeZoneOffset = -now.getTimezoneOffset() / 60 // 时区偏移（小时）
+      
+      console.log('⏰ 时间信息:', {
+        timestamp: gmtTimestamp,
+        timeZone: timeZoneOffset,
+        date: now.toISOString()
+      })
+      
+      // 构建时间同步命令（参考 Flutter 协议）
+      // [1, 4, 0, timestamp(4), timeZone(1)]
+      const arr = new Uint8Array(8)
+      let offset = 0
+      
+      // 类型 (1 byte)
+      arr[offset++] = 1
+      
+      // 命令 (2 bytes) - 4 = 0x04 (时间同步)
+      arr[offset++] = 4 & 0xff
+      arr[offset++] = (4 >>> 8) & 0xff
+      
+      // GMT时间戳 (4 bytes) - 手机时间标准(UTC)
+      arr[offset++] = gmtTimestamp & 0xff
+      arr[offset++] = (gmtTimestamp >>> 8) & 0xff
+      arr[offset++] = (gmtTimestamp >>> 16) & 0xff
+      arr[offset++] = (gmtTimestamp >>> 24) & 0xff
+      
+      // 时区 (1 byte)
+      arr[offset++] = timeZoneOffset & 0xff
+      
+      console.log('⏰ 发送时间同步命令:', arr)
+      console.log('⏰ 命令详情:', {
+        type: 1,
+        command: 4,
+        timestamp: gmtTimestamp,
+        timeZone: timeZoneOffset
+      })
+      
+      await bleConnection.writeData(arr)
+      console.log('✅ 时间同步命令发送成功')
+      
+      console.log('✅ 时间同步完成')
+    } catch (error: any) {
+      console.log('⚠️ 时间同步失败，但不影响连接:', error)
+      // 不抛出错误，避免影响连接状态
+    }
+  }
+
+  /**
+   * 加载设备文件
+   * 参考 Flutter loadDeviceFile 方法
+   */
+  async loadDeviceFile(): Promise<void> {
+    if (!bleConnection.isConnected) {
+      console.log('⚠️ 设备未连接，跳过文件加载')
+      return
+    }
+    
+    try {
+      console.log('📁 开始加载设备文件...')
+      
+      // 获取当前时间前180天的时间戳（参考Flutter默认值）
+      const now = new Date()
+      const daysAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+      const startTime = Math.floor(daysAgo.getTime() / 1000)
+      
+      console.log('📁 文件查询时间范围:', {
+        startTime,
+        startDate: daysAgo.toISOString(),
+        days: 180
+      })
+      
+      // 构建获取录音文件命令（参考 Flutter getRecfile）
+      // 命令26: 获取录音文件列表
+      const arr = new Uint8Array(7)
+      let offset = 0
+      
+      // 类型 (1 byte)
+      arr[offset++] = 1
+      
+      // 命令 (2 bytes) - 26 = 0x1A (获取录音文件)
+      arr[offset++] = 26 & 0xff
+      arr[offset++] = (26 >>> 8) & 0xff
+      
+      // 开始时间戳 (4 bytes)
+      arr[offset++] = startTime & 0xff
+      arr[offset++] = (startTime >>> 8) & 0xff
+      arr[offset++] = (startTime >>> 16) & 0xff
+      arr[offset++] = (startTime >>> 24) & 0xff
+      
+      console.log('📁 发送获取文件列表命令:', arr)
+      console.log('📁 命令详情:', {
+        type: 1,
+        command: 26,
+        startTime,
+        startDate: daysAgo.toISOString()
+      })
+      
+      await bleConnection.writeData(arr)
+      console.log('✅ 获取文件列表命令发送成功')
+      
+      console.log('✅ 设备文件加载完成')
+    } catch (error: any) {
+      console.log('⚠️ 加载设备文件失败，但不影响连接:', error)
+      // 不抛出错误，避免影响连接状态
+    }
+  }
+
+  /**
    * 解析设备响应数据
    * 参考 Flutter 代码中的响应处理
    */
@@ -188,13 +410,18 @@ export class BleDevice {
         break
         
       case 9: // 电池电量响应
-        if (bytes.length >= 3) {
-          const batteryLevel = bytes[2]
-          console.log('🔋 电池电量:', batteryLevel)
+        if (bytes.length >= 4) {
+          const charging = bytes[2]  // 充电状态 (0=未充电, 1=充电中)
+          const level = bytes[3]     // 电量等级 (0-100)
+          console.log('🔋 电池电量:', { charging, level })
           
           return {
             type: 'battery',
-            data: { batteryLevel }
+            data: { 
+              charging: charging === 1,
+              level: level,
+              batteryLevel: level  // 保持向后兼容
+            }
           }
         }
         break

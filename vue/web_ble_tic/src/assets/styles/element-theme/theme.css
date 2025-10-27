@@ -1,8 +1,0 @@
- /* 通过 CSS 变量设置 */
- :root[data-theme='light'] {
-     --el-color-primary: green;
- }
-
- :root[data-theme='dark'] {
-     --el-color-primary: gray;
- }

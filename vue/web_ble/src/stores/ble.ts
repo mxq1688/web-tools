@@ -6,6 +6,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { BleDeviceInfo, BleDeviceDetail, BleConnectionStatus, BleAudioStatus } from '@/types/ble'
 import { bleScanner, bleConnection, bleRecording, bleDevice } from '@/utils/ble'
+import { DeviceInfoReader } from '@/utils/ble/deviceInfoReader'
 import { ElMessage } from 'element-plus'
 
 export const useBleStore = defineStore('ble', () => {
@@ -107,9 +108,9 @@ export const useBleStore = defineStore('ble', () => {
       connectionStatus.value = 2 // 已连接
       audioStatus.value = 1 // 就绪
       
-      // 设置设备详情
+      // 设置设备详情（先用设备ID作为临时SN）
       deviceDetail.value = {
-        sn: deviceInfo.sn || deviceInfo.id,
+        sn: deviceInfo.sn || deviceInfo.id,  // 临时使用设备ID
         name: deviceInfo.name,
         batteryLevel: 100, // 默认值，等待获取真实电量
         chargeStatus: 0,   // 默认值，等待获取真实充电状态
@@ -118,19 +119,67 @@ export const useBleStore = defineStore('ble', () => {
       }
       
       // 连接成功后自动获取设备信息（参考 Flutter connectSuccess）
-      console.log('🔍 开始获取设备信息...')
+      console.log('🔍 开始连接成功后的初始化操作...')
       
-      // 1. 获取设备状态（录音状态、充电状态等）
+      // 0. 获取真实设备序列号 (可选，不影响连接)
+      try {
+        // 从设备对象获取 GATT 服务器
+        const server = deviceInfo.device?.gatt
+        if (server && server.connected) {
+          console.log('🔍 尝试获取真实设备序列号...')
+          const realSerialNumber = await DeviceInfoReader.getSerialNumber(server)
+          if (realSerialNumber) {
+            deviceDetail.value.sn = realSerialNumber
+            console.log('✅ 获取到真实序列号:', realSerialNumber)
+          } else {
+            console.log('⚠️ 无法获取真实序列号，使用设备ID')
+          }
+        } else {
+          console.log('⚠️ GATT服务器未连接，无法获取序列号')
+        }
+      } catch (error) {
+        console.log('⚠️ 获取序列号失败，继续使用设备ID:', error)
+        // 不抛出错误，继续执行后续操作
+      }
+      
+      // 连接成功后自动获取设备信息（参考 Flutter connectSuccess）
+      console.log('🔍 开始连接成功后的初始化操作...')
+      
+      // 1. 设备握手绑定 (参考 Flutter bindDevice)
+      try {
+        await bleDevice.bindDevice()
+        console.log('✅ 设备握手完成')
+      } catch (error) {
+        console.log('⚠️ 设备握手失败:', error)
+      }
+      
+      // 2. 同步时间 (参考 Flutter syncTime)
+      try {
+        await bleDevice.syncTime()
+        console.log('✅ 时间同步完成')
+      } catch (error) {
+        console.log('⚠️ 时间同步失败:', error)
+      }
+      
+      // 3. 获取设备状态（录音状态、充电状态等）
       await bleDevice.getDeviceStatus()
       
-      // 2. 获取其他配置（麦克风增益、录音模式等）
+      // 4. 获取其他配置（麦克风增益、录音模式等）
       await bleDevice.getGeneralSetting()
       
-      // 3. 获取电池电量
+      // 5. 获取电池电量
       await bleDevice.getBatteryLevel()
       
-      // 4. 设置 USB 模式
+      // 6. 设置 USB 模式
       await bleDevice.setUsbMode()
+      
+      // 7. 加载设备文件 (参考 Flutter loadDeviceFile)
+      try {
+        await bleDevice.loadDeviceFile()
+        console.log('✅ 设备文件加载完成')
+      } catch (error) {
+        console.log('⚠️ 设备文件加载失败:', error)
+      }
       
       // 停止扫描
       stopScan()
@@ -156,9 +205,12 @@ export const useBleStore = defineStore('ble', () => {
    * 处理设备响应
    */
   function handleDeviceResponse(response: { type: string; data?: any }) {
+    console.log('📨 处理设备响应:', response.type, response.data)
+    
     switch (response.type) {
       case 'deviceStatus':
         const { isRecording, isCharging } = response.data
+        console.log('📊 设备状态更新:', { isRecording, isCharging })
         audioStatus.value = isRecording ? 2 : 1
         if (deviceDetail.value) {
           deviceDetail.value.audioStatus = isRecording ? 2 : 1
@@ -174,6 +226,7 @@ export const useBleStore = defineStore('ble', () => {
         
       case 'battery':
         const { batteryLevel } = response.data
+        console.log('🔋 电池电量更新:', batteryLevel + '%')
         if (deviceDetail.value) {
           deviceDetail.value.batteryLevel = batteryLevel
         }
@@ -185,6 +238,7 @@ export const useBleStore = defineStore('ble', () => {
         
       case 'recording':
         const { status } = response.data
+        console.log('🎙️ 录音状态更新:', status)
         switch (status) {
           case 'paused':
             audioStatus.value = 3
@@ -205,6 +259,14 @@ export const useBleStore = defineStore('ble', () => {
             }
             break
         }
+        break
+        
+      case 'unknown':
+        console.log('❓ 收到未知响应数据')
+        break
+        
+      default:
+        console.log('⚠️ 未处理的响应类型:', response.type)
         break
     }
   }
