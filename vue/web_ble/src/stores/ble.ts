@@ -365,20 +365,42 @@ export const useBleStore = defineStore('ble', () => {
         const downloadingFile = fileList.value.find(f => f.sessionId === dataSessionId)
         
         if (downloadingFile && downloadingFile.data) {
-          // 将数据块写入对应位置
-          downloadingFile.data.set(fileData, offset)
-          
-          // 计算进度
-          const receivedSize = offset + size
-          downloadingFile.downloadProgress = Math.min(
-            Math.round((receivedSize / downloadingFile.fileSize) * 100),
-            100
-          )
-          
-          console.log(`📦 文件下载进度: ${downloadingFile.downloadProgress}%`, {
-            receivedSize,
-            totalSize: downloadingFile.fileSize
+          console.log('📦 接收文件数据块:', {
+            sessionId: dataSessionId,
+            offset,
+            size,
+            dataLength: fileData.length,
+            bufferSize: downloadingFile.data.length,
+            fileSize: downloadingFile.fileSize
           })
+          
+          // 边界检查：确保写入不会超出缓冲区
+          if (offset + fileData.length <= downloadingFile.data.length) {
+            // 将数据块写入对应位置
+            downloadingFile.data.set(fileData, offset)
+            
+            // 计算进度
+            const receivedSize = offset + fileData.length
+            downloadingFile.downloadProgress = Math.min(
+              Math.round((receivedSize / downloadingFile.fileSize) * 100),
+              100
+            )
+            
+            console.log(`📦 文件下载进度: ${downloadingFile.downloadProgress}%`, {
+              receivedSize,
+              totalSize: downloadingFile.fileSize
+            })
+          } else {
+            console.error('❌ 数据写入越界:', {
+              offset,
+              dataLength: fileData.length,
+              bufferSize: downloadingFile.data.length,
+              wouldWriteTo: offset + fileData.length
+            })
+            ElMessage.error('文件数据写入错误，请重新传输')
+          }
+        } else {
+          console.warn('⚠️ 找不到对应的下载文件或缓冲区未初始化:', dataSessionId)
         }
         break
         
