@@ -924,13 +924,31 @@ export class BleDevice {
         const sessionId = bytes[1] | (bytes[2] << 8) | (bytes[3] << 16) | (bytes[4] << 24)
         const offset = bytes[5] | (bytes[6] << 8) | (bytes[7] << 16) | (bytes[8] << 24)
         const size = bytes[9] | (bytes[10] << 8)
-        const data = bytes.slice(11, 11 + size)
         
-        console.log('📦 文件数据块:', { sessionId, offset, size, dataLength: data.length })
+        // 确保有足够的数据
+        const expectedLength = 11 + size
+        const actualDataLength = Math.min(size, bytes.length - 11)
+        const data = bytes.slice(11, 11 + actualDataLength)
+        
+        console.log('📦 解析文件数据块:', { 
+          sessionId, 
+          offset, 
+          declaredSize: size,
+          actualDataLength: data.length,
+          totalBytes: bytes.length,
+          expectedLength
+        })
+        
+        if (actualDataLength < size) {
+          console.warn('⚠️ 数据不完整:', { 
+            expected: size, 
+            actual: actualDataLength 
+          })
+        }
         
         return {
           type: 'fileData',
-          data: { sessionId, offset, size, data }
+          data: { sessionId, offset, size: actualDataLength, data }
         }
       }
       return { type: 'unknown' }
