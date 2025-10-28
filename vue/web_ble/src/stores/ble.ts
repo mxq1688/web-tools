@@ -4,7 +4,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { BleDeviceInfo, BleDeviceDetail, BleConnectionStatus, BleAudioStatus } from '@/types/ble'
+import type { BleDeviceInfo, BleDeviceDetail, BleConnectionStatus, BleAudioStatus, BleFileInfo } from '@/types/ble'
 import { bleScanner, bleConnection, bleRecording, bleDevice } from '@/utils/ble'
 import { DeviceInfoReader } from '@/utils/ble/deviceInfoReader'
 import { ElMessage } from 'element-plus'
@@ -26,6 +26,12 @@ export const useBleStore = defineStore('ble', () => {
   
   // 录音状态
   const audioStatus = ref<BleAudioStatus>(0) // 0: 空闲, 1: 就绪, 2: 录音中, 3: 暂停
+  
+  // 文件列表
+  const fileList = ref<BleFileInfo[]>([])
+  
+  // 正在同步的文件
+  const syncingFileId = ref<number | null>(null)
 
   // ==================== 计算属性 ====================
   
@@ -170,7 +176,13 @@ export const useBleStore = defineStore('ble', () => {
       // 5. 获取电池电量
       await bleDevice.getBatteryLevel()
       
-      // 6. 设置 USB 模式
+      // 6. 获取存储空间
+      await bleDevice.getStorageVolume()
+      
+      // 7. 获取系统版本
+      await bleDevice.getSystemVersion()
+      
+      // 8. 设置 USB 模式
       await bleDevice.setUsbMode()
       
       // 7. 加载设备文件 (参考 Flutter loadDeviceFile)
@@ -221,7 +233,22 @@ export const useBleStore = defineStore('ble', () => {
       case 'generalSetting':
         const settings = response.data
         console.log('⚙️ 收到通用设置:', settings)
-        // 可以在这里处理通用设置，如录音模式、麦克风增益等
+        
+        // 保存通用设置到设备详情
+        if (deviceDetail.value) {
+          deviceDetail.value.generalSettings = settings
+          
+          // 根据 rec_scene 更新录音模式
+          // rec_scene: 1=录音模式, 2=会议模式
+          deviceDetail.value.audioType = settings.rec_scene
+          
+          // 更新录音控制类的场景设置
+          bleRecording.setRecordingScene(settings.rec_scene)
+          
+          console.log('📋 录音模式:', settings.rec_scene === 1 ? '录音模式' : '会议模式')
+          console.log('🎚️ 麦克风增益:', settings.dmic_mode)
+          console.log('💡 LED状态:', settings.rec_led_status)
+        }
         break
         
       case 'battery':
@@ -237,9 +264,21 @@ export const useBleStore = defineStore('ble', () => {
         break
         
       case 'recording':
-        const { status } = response.data
-        console.log('🎙️ 录音状态更新:', status)
-        switch (status) {
+        const { status: recordStatus, sessionId: recSessionId } = response.data
+        console.log('🎙️ 录音状态更新:', recordStatus, response.data)
+        
+        // 如果响应中包含 sessionId，更新到录音控制类
+        if (recSessionId !== undefined) {
+          bleRecording.setCurrentSessionId(recSessionId)
+        }
+        
+        switch (recordStatus) {
+          case 'started':
+            audioStatus.value = 2
+            if (deviceDetail.value) {
+              deviceDetail.value.audioStatus = 2
+            }
+            break
           case 'paused':
             audioStatus.value = 3
             if (deviceDetail.value) {
@@ -259,6 +298,127 @@ export const useBleStore = defineStore('ble', () => {
             }
             break
         }
+        break
+        
+      case 'storage':
+        const storageData = response.data
+        console.log('💾 存储空间更新:', storageData)
+        if (deviceDetail.value) {
+          deviceDetail.value.storageInfo = storageData
+        }
+        break
+        
+      case 'wifi':
+        console.log('📶 WiFi操作响应:', response.data.action, response.data.status)
+        break
+        
+      case 'led':
+        const ledData = response.data
+        console.log('💡 录音灯效响应:', ledData)
+        if (deviceDetail.value && ledData.action === 'get') {
+          deviceDetail.value.ledEnabled = ledData.enabled
+        }
+        break
+        
+      case 'version':
+        const versionData = response.data
+        console.log('📱 系统版本:', versionData.versionStr)
+        if (deviceDetail.value) {
+          deviceDetail.value.systemVersion = versionData.versionStr
+        }
+        break
+        
+      case 'heartbeat':
+        console.log('💓 心跳响应')
+        break
+        
+      case 'timeSync':
+        console.log('🕒 时间同步完成:', response.data)
+        break
+        
+      case 'fileList':
+        console.log('📋 文件列表:', response.data)
+        fileList.value = response.data.items || []
+        ElMessage.success(`获取到 ${response.data.items.length} 个文件`)
+        break
+        
+      case 'syncFile':
+        console.log('📥 同步文件:', response.data)
+        const syncSessionId = response.data.sessionId
+        syncingFileId.value = syncSessionId
+        
+        // 初始化文件下载状态
+        const syncFile = fileList.value.find(f => f.sessionId === syncSessionId)
+        if (syncFile) {
+          syncFile.isDownloading = true
+          syncFile.downloadProgress = 0
+          syncFile.isCompleted = false
+          syncFile.data = new Uint8Array(syncFile.fileSize)
+        }
+        
+        ElMessage.success('开始同步文件')
+        break
+        
+      case 'fileData':
+        // 接收文件数据块
+        const { sessionId: dataSessionId, offset, size, data: fileData } = response.data
+        const downloadingFile = fileList.value.find(f => f.sessionId === dataSessionId)
+        
+        if (downloadingFile && downloadingFile.data) {
+          // 将数据块写入对应位置
+          downloadingFile.data.set(fileData, offset)
+          
+          // 计算进度
+          const receivedSize = offset + size
+          downloadingFile.downloadProgress = Math.min(
+            Math.round((receivedSize / downloadingFile.fileSize) * 100),
+            100
+          )
+          
+          console.log(`📦 文件下载进度: ${downloadingFile.downloadProgress}%`, {
+            receivedSize,
+            totalSize: downloadingFile.fileSize
+          })
+        }
+        break
+        
+      case 'syncFileEnd':
+        console.log('📦 文件同步完成:', response.data)
+        const endSessionId = response.data.sessionId
+        const completedFile = fileList.value.find(f => f.sessionId === endSessionId)
+        
+        if (completedFile) {
+          completedFile.isDownloading = false
+          completedFile.isCompleted = true
+          completedFile.downloadProgress = 100
+        }
+        
+        syncingFileId.value = null
+        ElMessage.success('文件同步完成，可以下载到本地')
+        break
+        
+      case 'stopSync':
+        console.log('⏹️ 停止同步')
+        
+        // 清除正在同步的文件状态
+        if (syncingFileId.value) {
+          const stoppedFile = fileList.value.find(f => f.sessionId === syncingFileId.value)
+          if (stoppedFile) {
+            stoppedFile.isDownloading = false
+            stoppedFile.data = undefined
+          }
+        }
+        
+        syncingFileId.value = null
+        ElMessage.info('已停止同步')
+        break
+        
+      case 'deleteConfirm':
+        console.log('🗑️ 删除文件确认:', response.data)
+        // 从文件列表中移除已删除的文件
+        const deletedId = response.data.sessionId
+        fileList.value = fileList.value.filter(file => file.sessionId !== deletedId)
+        ElMessage.success('文件删除成功')
         break
         
       case 'unknown':
@@ -359,6 +519,127 @@ export const useBleStore = defineStore('ble', () => {
       console.error(error)
     }
   }
+
+  /**
+   * 获取通用设置（录音模式等）
+   */
+  async function getGeneralSetting() {
+    try {
+      await bleDevice.getGeneralSetting()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 获取存储空间
+   */
+  async function getStorageVolume() {
+    try {
+      await bleDevice.getStorageVolume()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 获取系统版本
+   */
+  async function getSystemVersion() {
+    try {
+      await bleDevice.getSystemVersion()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 打开WiFi热点
+   */
+  async function openWifi() {
+    try {
+      await bleDevice.openWifi()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 关闭WiFi热点
+   */
+  async function closeWifi() {
+    try {
+      await bleDevice.closeWifi()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 获取录音灯效状态
+   */
+  async function getRecordLed() {
+    try {
+      await bleDevice.getRecordLed()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 设置录音灯效
+   */
+  async function setRecordLed(enabled: boolean) {
+    try {
+      await bleDevice.setRecordLed(enabled)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 获取文件列表
+   */
+  async function getSessionList(uid: number = 0, sessionId: number = 0, onlyOne: number = 0) {
+    try {
+      await bleDevice.getSessionList(uid, sessionId, onlyOne)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 同步文件
+   */
+  async function syncFile(sessionId: number, start: number, end: number, noOggHeader: number = 0) {
+    try {
+      await bleDevice.syncFile(sessionId, start, end, noOggHeader)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 停止同步文件
+   */
+  async function stopSyncFile() {
+    try {
+      await bleDevice.stopSyncFile()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * 删除录音
+   */
+  async function deleteRecord(sessionId: number) {
+    try {
+      await bleDevice.deleteRecord(sessionId)
+    } catch (error) {
+      console.error(error)
+    }
+  }
   
   /**
    * 重置状态
@@ -376,6 +657,8 @@ export const useBleStore = defineStore('ble', () => {
     deviceDetail,
     connectionStatus,
     audioStatus,
+    fileList,
+    syncingFileId,
     
     // 计算属性
     hasDevice,
@@ -394,6 +677,17 @@ export const useBleStore = defineStore('ble', () => {
     stopRecord,
     getDeviceStatus,
     getBatteryLevel,
+    getGeneralSetting,
+    getStorageVolume,
+    getSystemVersion,
+    openWifi,
+    closeWifi,
+    getRecordLed,
+    setRecordLed,
+    getSessionList,
+    syncFile,
+    stopSyncFile,
+    deleteRecord,
     reset,
   }
 })

@@ -63,6 +63,21 @@ export enum BleAudioStatus {
   PAUSED = 3, // 已暂停
 }
 
+// BLE 录音模式
+export enum BleRecordingMode {
+  RECORDING = 1, // 录音模式
+  CONFERENCE = 2, // 会议模式
+}
+
+// BLE 通用设置
+export interface BleGeneralSettings {
+  rec_led_status: number // 录音LED状态
+  rec_scene: number // 录音场景 (1=录音, 2=会议)
+  rec_mode: number // 录音模式
+  row_data: number // 原始数据
+  dmic_mode: number // 麦克风增益/模式
+}
+
 // BLE 设备详细信息
 export interface BleDeviceDetail {
   sn: string
@@ -70,9 +85,33 @@ export interface BleDeviceDetail {
   version?: string
   batteryLevel: number
   chargeStatus: number // 0:未充电 1:充电中
-  audioType?: number // 1:通话模式 2:会议模式
+  audioType?: number // 1:录音模式 2:会议模式
   audioStatus: BleAudioStatus
   connectionStatus: BleConnectionStatus
+  generalSettings?: BleGeneralSettings // 通用设置
+  storageInfo?: BleStorageInfo // 存储信息
+  ledEnabled?: boolean // LED灯效状态
+  systemVersion?: string // 系统版本
+}
+
+// BLE 存储信息
+export interface BleStorageInfo {
+  totalSpace: number // 总空间（字节）
+  free: number // 剩余空间（字节）
+  used: number // 已使用空间（字节）
+  useRate: number // 使用率（百分比，0-100）
+  isFull: number // 是否已满
+}
+
+// BLE 文件信息
+export interface BleFileInfo {
+  sessionId: number // 会话ID
+  fileSize: number // 文件大小（字节）
+  attr: number // 文件属性
+  downloadProgress?: number // 下载进度 (0-100)
+  isDownloading?: boolean // 是否正在下载
+  isCompleted?: boolean // 是否下载完成
+  data?: Uint8Array // 下载的文件数据
 }
 
 // 扫描选项
